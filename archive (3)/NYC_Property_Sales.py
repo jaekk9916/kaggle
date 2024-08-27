@@ -46,15 +46,16 @@ plt.ylabel('Number of buildings Constructed')
 plt.grid(True)
 plt.show()
 
+df['SALE DATE'] = pd.to_datetime(df['SALE DATE'], errors='coerce')
 
-sale_data_trend = df['SALE DATE'].value_counts().sort_index()
+df['YEAR_MONTH'] = df['SALE DATE'].dt.to_period('M')
+sale_data_trend = df['YEAR_MONTH'].value_counts().sort_index()
 
 plt.figure(figsize=(12,6))
-sns.lineplot(x=sale_data_trend.index, y=sale_data_trend.values)
+sns.lineplot(x=sale_data_trend.index.astype(str), y=sale_data_trend.values)
 plt.title('Trend in Real Estate Sales Over Time')
 plt.xlabel('Year of Sale')
 plt.ylabel('Number of Sales')
 plt.grid(True)
 plt.show()
-
 
