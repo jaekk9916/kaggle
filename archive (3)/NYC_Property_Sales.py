@@ -21,6 +21,10 @@ print(df.dtypes)
 import matplotlib.pyplot as plt
 import seaborn as sns
 
+# Mapping borough numbers to names
+borough_mapping = {1:'Manhattan', 2:'Bronx', 3:'Brooklyn', 4:'Queens', 5:'Saten Island'}
+df['BOROUGH'] = df['BOROUGH'].map(borough_mapping)
+
 sns.set(style='whitegrid')
 
 plt.figure(figsize=(10,6))
@@ -31,7 +35,9 @@ plt.xlabel('BOROUGH')
 plt.ylabel('Number of Data points')
 plt.show()
 
-year_built_trend = df['YEAR BUILT'].value_counts().reset_index(name='counts')
+
+df_filtered = df[df['YEAR BUILT'] > 1800]
+year_built_trend = df_filtered['YEAR BUILT'].value_counts().reset_index(name='counts')
 plt.figure(figsize=(12,6))
 sns.lineplot(data=year_built_trend, x='YEAR BUILT', y='counts')
 plt.title('Trend in Building Constructed Over Time')
@@ -39,4 +45,16 @@ plt.xlabel('Year Built')
 plt.ylabel('Number of buildings Constructed')
 plt.grid(True)
 plt.show()
+
+
+sale_data_trend = df['SALE DATE'].value_counts().sort_index()
+
+plt.figure(figsize=(12,6))
+sns.lineplot(x=sale_data_trend.index, y=sale_data_trend.values)
+plt.title('Trend in Real Estate Sales Over Time')
+plt.xlabel('Year of Sale')
+plt.ylabel('Number of Sales')
+plt.grid(True)
+plt.show()
+
 
