@@ -9,6 +9,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.preprocessing import LabelEncoder
+import numpy as np
 
 pd.set_option('display.max_columns', None)
 pd.set_option('display.max_rows', None)
@@ -67,22 +68,19 @@ plt.ylabel('Number of buildings Constructed')
 plt.grid(True)
 plt.show()
 
-plt.figure(figsize=(10,6))
-sns.histplot(df_filtered['SALE PRICE'], bins=50, kde=True, color='blue')
-plt.title('Distribution of Sale Prices')
-plt.xlabel('Sale Price')
-plt.ylabel('Frequency')
-plt.grid(True)
-plt.show()
-
 label_encoder = LabelEncoder()
 
 # Applying Label Encoding to categorical columns
-df_filtered['NEIGHBORHOOD'] = label_encoder.fit_transform(df_filtered['NEIGHBORHOOD'])
-df_filtered['BUILDING CLASS CATEGORY'] = label_encoder.fit_transform(df_filtered['BUILDING CLASS CATEGORY'])
-df_filtered['TAX CLASS AT PRESENT'] = label_encoder.fit_transform(df_filtered['TAX CLASS AT PRESENT'])
-df_filtered['BUILDING CLASS AT PRESENT'] = label_encoder.fit_transform(df_filtered['BUILDING CLASS AT PRESENT'])
-df_filtered['BUILDING CLASS AT TIME OF SALE'] = label_encoder.fit_transform(df_filtered['BUILDING CLASS AT TIME OF SALE'])
+label_encoder_neighborhood = LabelEncoder()
+df_filtered['NEIGHBORHOOD'] = label_encoder_neighborhood.fit_transform(df_filtered['NEIGHBORHOOD'])
+label_encoder_building_class = LabelEncoder()
+df_filtered['BUILDING CLASS CATEGORY'] = label_encoder_building_class.fit_transform(df_filtered['BUILDING CLASS CATEGORY'])
+label_encoder_tax_class = LabelEncoder()
+df_filtered['TAX CLASS AT PRESENT'] = label_encoder_tax_class.fit_transform(df_filtered['TAX CLASS AT PRESENT'])
+label_encoder_building_at_present = LabelEncoder()
+df_filtered['BUILDING CLASS AT PRESENT'] = label_encoder_building_at_present.fit_transform(df_filtered['BUILDING CLASS AT PRESENT'])
+label_encoder_at_time_sale = LabelEncoder()
+df_filtered['BUILDING CLASS AT TIME OF SALE'] = label_encoder_at_time_sale.fit_transform(df_filtered['BUILDING CLASS AT TIME OF SALE'])
 
 df_filtered['SALE PRICE'] = pd.to_numeric(df_filtered['SALE PRICE'], errors='coerce')
 df_filtered['LAND SQUARE FEET'] = pd.to_numeric(df_filtered['LAND SQUARE FEET'], errors='coerce')
@@ -90,7 +88,7 @@ df_filtered['GROSS SQUARE FEET'] = pd.to_numeric(df_filtered['GROSS SQUARE FEET'
 
 df_filtered = df_filtered.drop(columns=['Unnamed: 0','EASE-MENT','ADDRESS','APARTMENT NUMBER'])
 
-print(df.dtypes)
+print(df_filtered.dtypes)
 
 # Correlation Heatmap
 plt.figure(figsize=(10,8))
@@ -107,12 +105,8 @@ df['PROPERTY AGE'] = df['SALE DATE'].dt.year - df['YEAR BUILT']
 df = df.dropna(subset=['PROPERTY AGE', 'SALE PRICE'])
 df = df[df['PROPERTY AGE'] > 0]
 
-# Plot the distribution of propery ages
-plt.figure(figsize=(10, 6))
-sns.histplot(df['PROPERTY AGE'], bins=30, kde=True)
-plt.title('Distribution of Property Ages')
-plt.xlabel('Property Age (years)')
-plt.ylabel('Frequency')
+plt.figure(figsize=(10,8))
+sns.heatmap(df_filtered.corr(), annot=True, fmt='.2f', cmap='coolwarm', cbar=True)
 plt.show()
 
 # Focusing on the correlation with the target variable (e.g., 'SALE PRICE')
@@ -127,13 +121,16 @@ plt.ylabel('Correlationship with SALE PRICE')
 plt.xticks(rotation=90)
 plt.show()
 
+# Capture the original mapping of encoded values
+tax_class_mapping = dict(zip(label_encoder_tax_class.transform(label_encoder_tax_class.classes_), label_encoder_tax_class.classes_))
+print("Encoded to Origianl Mapping: ", tax_class_mapping)
+
 # Filter the dataset to include only Tax Class 1 properties and its variations (e.g., '1','1A','1B','1C')
 df_residential = df_filtered[df_filtered['TAX CLASS AT PRESENT'].astype(str).str.startswith('1')]
-df_residential = df_residential.copy()
 
-plt.figure(figsize=(10,8))
-sns.heatmap(df_residential.corr(), annot=True, fmt='.2f', cmap='coolwarm', cbar=True)
-plt.show()
+# Check the unique encoded values for TAX CLASS AT PRESENT after filtering and encoding
+print(df_residential['TAX CLASS AT PRESENT'].unique())
+df_residential = df_residential.copy()
 
 # Analyze the price trende of residential homes over time
 df_residential['SALE DATE'] = pd.to_datetime(df_residential['SALE DATE'], errors='coerce')
@@ -142,16 +139,20 @@ df_residential['YEAR'] = df_residential['SALE DATE'].dt.year
 # Calculate the age of the property at the time of sale
 df_residential['PROPERTY AGE AT SALE'] = df_residential['YEAR'] - df_residential['YEAR BUILT']
 
-# Create a scatter plot to visualize the relationship
-plt.figure(figsize=(12,8))
-sns.scatterplot(x='PROPERTY AGE AT SALE', y='SALE PRICE', hue='YEAR', data=df_residential, palette='Set2', alpha=0.7)
-# plt.figure(figsize=(12,6))
+# Create a scatter plot with thresholds and log transformation applied to the sale price
+df_residential = df_residential[df_residential['SALE PRICE'] <= 100000000]
+df_residential['LOG SALE PRICE'] = np.log(df_residential['SALE PRICE'])
 
-plt.title('Relationship Between Property Age at Sales, Sale Year, and Sale Price')
-plt.xlabel('Property Age at Sale (Year)')
-plt.ylabel('Sale Price')
+#Recreate the scatter plot with log-transformed sale price
+plt.figure(figsize=(12,8))
+sns.scatterplot(x='PROPERTY AGE AT SALE', y='LOG SALE PRICE', hue='YEAR', data=df_residential, palette='Set2', alpha=0.7)
+
+plt.title('Log-Transformed Relationship Between Property Age At Sale, Sale Year, and Sale Price')
+plt.xlabel('Property Age At Sale')
+plt.ylabel('Log of Sale Price')
 plt.grid(True)
 plt.show()
+
 # sns.lineplot(x='YEAR', y='SALE PRICE', data=df_residential, ci=None)
 # plt.title('Price Trend of Residential Homes Over Time')
 # plt.xlabel('Year')
@@ -162,17 +163,6 @@ plt.show()
 borough_mapping = {1:'Manhattan', 2:'Bronx', 3:'Brooklyn', 4:'Queens', 5:'Saten Island'}
 df_residential['BOROUGH'] = df_residential['BOROUGH'].map(borough_mapping)
 
-# Analyze the number of residentail homes per neiborhood
-borough_counts = df_residential['BOROUGH'].value_counts()
-
-plt.figure(figsize=(12,8))
-sns.barplot(x=borough_counts.index, y=borough_counts.values, palette='viridis')
-plt.title('Number of Residential Homes per Neighborhood')
-plt.xlabel('Neighborhood')
-plt.ylabel('Number of Residentail Homes')
-plt.xticks(rotation=90)
-plt.show()
-
 # Revert the BOROUGH column back to numeric values
 borough_reverse_mapping = {'Manhattan': 1, 'Bronx': 2, 'Brooklyn': 3, 'Queens': 4, 'Saten Island': 5}
 df_filtered['BOROUGH'] = df_filtered['BOROUGH'].replace(borough_reverse_mapping)
@@ -180,11 +170,37 @@ df_filtered['BOROUGH'] = df_filtered['BOROUGH'].replace(borough_reverse_mapping)
 # Analyze the average sale price per borough
 borough_avg_price = df_residential.groupby('BOROUGH')['SALE PRICE'].mean().sort_values(ascending=False)
 
-plt.figure(figsize=(12,6))
-sns.barplot(x=borough_avg_price.index, y=borough_avg_price.values, palette='viridis')
+plt.figure(figsize=(10,6))
+sns.barplot(x=borough_avg_price.index, y=borough_avg_price.values, palette='icefire')
 plt.title('Average Sale Price per Borough')
 plt.xlabel('Borough')
 plt.ylabel('Average Sale Price')
 plt.show()
 
-# Ensure 
+# Calculate the mean sale price for each YEAR BUILT per TAX CLASS AT PRESENT
+sale_price_trend = df_filtered.groupby(['YEAR BUILT','TAX CLASS AT PRESENT'])['SALE PRICE'].mean().reset_index()
+
+
+# Plotting the trend
+plt.figure(figsize=(12,8))
+sns.lineplot(data=sale_price_trend, x='YEAR BUILT', y='SALE PRICE', hue='TAX CLASS AT PRESENT', marker='o', palette='tab10')
+
+plt.yscale('log')
+plt.title('Sale Price Trends by Year Built per TAX CLASS AT PRESENT')
+plt.xlabel('Yar Built')
+plt.ylabel('Average Sale Price')
+plt.grid(True)
+plt.legend(title='TAX CLASS AT PRESENT', bbox_to_anchor=(1.05, 1), loc='upper left')
+
+# Adding labels to each line similar to the first image
+tax_classes = sale_price_trend['TAX CLASS AT PRESENT'].unique()
+palette = sns.color_palette('tab10', len(tax_classes))  
+for i, tax_class in enumerate(tax_classes):
+    subset = sale_price_trend[sale_price_trend['TAX CLASS AT PRESENT'] == tax_class]
+    original_label = tax_class_mapping.get(tax_class, str(tax_class))
+
+# Adding a legend similar to a label box with original labels
+handles, labels = plt.gca().get_legend_handles_labels()
+original_labels = [tax_class_mapping[int(label)] for label in labels]
+plt.legend(handles, original_labels, title='TAX CLASS AT PRESENT', bbox_to_anchor=(1.05, 1), loc='upper left', borderaxespad=0., frameon=True)
+plt.show()
